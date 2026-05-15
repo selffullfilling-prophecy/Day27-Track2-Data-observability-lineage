@@ -55,16 +55,21 @@ def build_summary(rows: list[dict[str, str]]) -> dict[str, int | str]:
 def write_summary(summary: dict[str, int | str], output_path: str | Path) -> Path:
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    output_file.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return output_file
 
 
-def send_discord_message(summary: dict[str, int | str], webhook_url: str = DISCORD_WEBHOOK_URL) -> None:
+def send_discord_message(
+    summary: dict[str, int | str],
+    webhook_url: str = DISCORD_WEBHOOK_URL,
+    dataset_path: str | Path | None = None,
+) -> None:
     if not webhook_url:
         return
 
     message = (
         f"Sales Data Quality {summary['validation_status'].upper()}\n"
+        f"Dataset: {Path(dataset_path).name if dataset_path else 'unknown'}\n"
         f"Rows: {summary['row_count']}\n"
         f"Missing customer_id: {summary['missing_customer_ids']}\n"
         f"Invalid amounts: {summary['invalid_amounts']}\n"
@@ -93,7 +98,7 @@ def run_lab_check(
     output_file = write_summary(summary, output_path or (OUTPUT_DIR / "validation_summary.json"))
 
     if not skip_discord:
-        send_discord_message(summary)
+        send_discord_message(summary, dataset_path=input_path)
 
     if summary["validation_status"] == "failed" and not allow_failure:
         raise LabValidationError(f"Validation failed. Summary saved to {output_file}")
